@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="On explicit save action" serverName="liupeipei@10.10.2.162">
+    <serverData>
+      <paths name="liupeipei@10.10.2.146">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/data/liupeipei/paper/Enterprise_Relations" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="liupeipei@10.10.2.162">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/data/liupeipei/paper/Enterprise_Relations" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ON_EXPLICIT_SAVE" />
+  </component>
+</project>
