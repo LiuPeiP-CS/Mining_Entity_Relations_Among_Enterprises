@@ -2,8 +2,8 @@ import os
 import argparse
 from itertools import count
 
-import data_preprocessing.utils.data as ud
-import data_preprocessing.utils.file as uf
+import utils.data as ud
+import utils.file as uf
 # import utils.converter as uc
 # import utils.replace as ur
 
@@ -13,12 +13,9 @@ from pathlib import Path
 
 def main(args):
     # load labeled data
-    dp = args.data_path
-    ep = args.entities_path
-    sp = args.save_path
-    data = uf.load_label_data(dp)
-
-    # entities_list = uf.load_json_data(ep) # 导入全部的公司实体
+    datapath = args.data_path
+    savepath = args.save_path
+    data = uf.load_label_data(datapath)
 
     max_len = 0
 
@@ -46,31 +43,28 @@ def main(args):
     }
 
     relations_dict = {
-        "合作": True,
-        "供应": False,
-        "参股": False,
-        "转让": False,
-        "控股": False,
-        "附属": False,
-        "合资": True,
-        "投资": False,
-        "授权": False,
-        "代管": False,
-        "合并": True,
-        "剥离": False,
-        "竞争": True,
-        "代工": False,
-        "委托": False,
-        "更名": False,
-        "共指": True,
-        "纠纷": True,
-        "关联": True,
-        "None": False
+        "合作": 'True',
+        "供应": 'False',
+        "参股": 'False',
+        "转让": 'False',
+        "控股": 'False',
+        "附属": 'False',
+        "合资": 'True',
+        "投资": 'False',
+        "授权": 'False',
+        "代管": 'False',
+        "合并": 'True',
+        "剥离": 'False',
+        "竞争": 'True',
+        "代工": 'False',
+        "委托": 'False',
+        "更名": 'False',
+        "共指": 'True',
+        "纠纷": 'True',
+        "关联": 'True',
+        "None": 'False'
     }
 
-    # count = 0
-    txt = ""
-    # analyze data
     for d in data:
         # 构建属于本条数据的实体列表
         entities_list = ud.get_ents_list(d["relations"]) # 从关系字符串里面提取出实体
@@ -124,20 +118,16 @@ def main(args):
         "data": data
     }
 
-    # print(count)
-
-    # #Save file
-    # sp = Path(sp)
-    spf = os.path.join(sp, "final_data.json")
+    # spf = os.path.join(savepath, "data_ok+.json")
+    # spf = os.path.join(savepath, "final_annot+.json")
+    spf = os.path.join(savepath, "RSamples.json")
     uf.save_to_json(result, spf)
-    # uc.convert_to_casrel_and_TPLinker(spf, sp/"CasRel", sp/"TPLinker")
-    # uc.convert_to_spert(spf, sp/"spert")
-    # uc.convert_to_tablesequence(spf, sp/"Table-sequence")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="preprocessing labeled data")
-    parser.add_argument("-p", "--data-path", default="/home/liupei/Papers/IPM/data_preprocessing/data_preprocessing/data/data_ok_07251.txt", type=str, help="Path to labeled data file")
-    parser.add_argument("-e", "--entities-path", default="/home/liupei/Papers/IPM/data_preprocessing/data_preprocessing/data/entities.json", type=str, help="Path to entities data file")
-    parser.add_argument("-s", "--save-path", type=str, default="/home/liupei/Papers/IPM/data_preprocessing/data_preprocessing/data", help="Output path of preprocessing result file")
+    # parser.add_argument("-p", "--data-path", default="/home/liupei/Papers/IPM/DataProcessing20221012/data/RightLabel/data_ok+.txt", type=str, help="Path to labeled data file")
+    # parser.add_argument("-p", "--data-path", default="/home/liupei/Papers/IPM/DataProcessing20221012/data/RightLabel/final_annot+.txt", type=str, help="Path to labeled data file")
+    parser.add_argument("-p", "--data-path", default="/home/liupei/Papers/IPM/DataProcessing20221012/data/RightLabel/RSamples.txt", type=str, help="Path to labeled data file")
+    parser.add_argument("-s", "--save-path", type=str, default="/home/liupei/Papers/IPM/DataProcessing20221012/data/RightLabel", help="Output path of preprocessing result file")
     main(parser.parse_args())

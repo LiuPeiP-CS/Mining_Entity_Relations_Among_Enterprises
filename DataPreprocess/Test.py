@@ -51,15 +51,42 @@ def split_by_ents(str_sentence, entities_list):
     :param entities_list: 同sentence_to_token()函数的参数
     :return:
     """
+    # 该方法虽然能很好的解决实体对文本的分割，但对于连续实体没有办法
+    # re_s = entities_list[0]
+    # for i in range(1, len(entities_list)):
+    #     re_s = re_s + '|' + entities_list[i]
+    #
+    # print('The split str is {}'.format(re_s))
+    # re_s = re_s.replace(
+    #     "(", "\\(").replace(")", "\\)").replace("+", "\\+").replace("*", "\\*")
+    # entities_split_list = re.split("("+re_s+")+", str_sentence) # 通过实体对原始语句进行切分，并保留实体的内容和位置。
+    # print('The split result by the re_s is {}'.format(entities_split_list))
+    # ['我非常喜欢华夏文明，', '华为', 'Mate手机很不错，所以我选择了', '华为', '，而不是', '苹果', '和', 'Nokia Pro', '。', '(IBM)', '是一家很不错的企业，我们很欣赏', 'relme+', '的做事风格']
 
+    # 解决连续实体的分割问题
     re_s = entities_list[0]
     for i in range(1, len(entities_list)):
         re_s = re_s + '|' + entities_list[i]
     re_s = re_s.replace(
-        "(", "\\(").replace(")", "\\)").replace("+", "\\+").replace("*", "\\*")
-    entities_split_list = re.split("("+re_s+")+", str_sentence) # 通过实体对原始语句进行切分，并保留实体的内容和位置。
-    print(entities_split_list)
-    # ['我非常喜欢华夏文明，', '华为', 'Mate手机很不错，所以我选择了', '华为', '，而不是', '苹果', '和', 'Nokia Pro', '。', '(IBM)', '是一家很不错的企业，我们很欣赏', 'relme+', '的做事风格']
+            "(", "\\(").replace(")", "\\)").replace("+", "\\+").replace("*", "\\*")
+    entities_pattern = re.compile(re_s)
+    entities_iter = entities_pattern.finditer(str_sentence) # 构建实体迭代模式，找到所有实体
+
+    entities_be_list = []
+    for i in entities_iter:
+        entities_be_list.append((i.start(), i.end())) # 找到所有实体的首尾位置
+
+    entities_split_list = []
+    new_begin = 0
+    for ent_be_iter, each_ent_be in enumerate(entities_be_list): # 以每个实体的始末位置划分字符串
+        if str_sentence[new_begin:each_ent_be[0]] != '':
+            entities_split_list.append(str_sentence[new_begin:each_ent_be[0]]) # 两实体之间的内容
+        entities_split_list.append(str_sentence[each_ent_be[0]:each_ent_be[1]]) # 实体内容
+        new_begin = each_ent_be[1]
+        if ent_be_iter+1 == len(entities_be_list): # 最后一个实体后的内容
+            entities_split_list.append(str_sentence[new_begin:])
+
+    print('The split result by the entities is {}'.format(entities_split_list))
 
     non_ents = OrderedDict()
     ents = OrderedDict()
@@ -119,20 +146,20 @@ def get_nearest_from_addr(token_list, so_be_list, rel_name):
         s_b, s_e = s_be
         o_b, o_e = o_be
         if o_b > s_e: # sent在前面，oent在后面
-            if rel_name in ''.join(token_list[s_e:o_b+1]):
-                return o_b - s_e, 'T'
+            if rel_name in ''.join(token_list[s_e-3:o_b+6]): # 扩大关键字的查询范围
+                return o_b - s_e, True
             else:
-                return o_b - s_e, 'F'
+                return o_b - s_e, False
 
         elif s_b > o_e: # oent在前面，sent在后面
-            if rel_name in ''.join(token_list[o_e:s_b+1]):
-                return s_b - o_e, 'T'
+            if rel_name in ''.join(token_list[o_e-3:s_b+6]): # 扩大关键字的查询范围
+                return s_b - o_e, True
             else:
-                return s_b - o_e, 'F'
+                return s_b - o_e, False
         else:
             raise ValueError('The get_nearest_from_addr is wrong !')
 
-    so_dis = [] # 两个实体span之间的具体
+    so_dis = [] # 两个实体span之间的距离
     so_rel_sig = [] # 字段内是否有关系字符串，有的话为'T'，没有的话为'F'
     so_ent_id = [] # 两个实体对应的实体标记位置，用于返回值
     for so_be_so_id in so_be_list:
@@ -146,7 +173,7 @@ def get_nearest_from_addr(token_list, so_be_list, rel_name):
     so_dis_inds = [x[0] for x in sorted_so_dis]  # 排序后最短距离的原始index,即为了找出对应哪条路径
 
     for short_dis_ind in so_dis_inds:
-        if so_rel_sig[short_dis_ind] == 'T': # 从最短距离开始找，如果找到就反馈，结束寻找
+        if so_rel_sig[short_dis_ind]: # 从最短距离开始找，如果找到就反馈，结束寻找
             return so_ent_id[short_dis_ind] # 找到对应的头尾实体索引
 
     if not found_sg: # 上述步骤没有反馈，说明没有找到。因此，直接最近的
@@ -297,8 +324,8 @@ def sentence_to_token(info, entities_list):
     return token, label, entities, entities_index, len(entities)
 
 if __name__ == "__main__":
-    str_sent = '我非常喜欢华夏文明，华为Mate手机很不错，所以我选择了华为，而不是苹果和Nokia Pro。(IBM)是一家很不错的企业，我们很欣赏relme+的做事风格。随着美国对华为的持续打压，华为被迫剥离了荣耀，未来荣耀很有可能以竞争者的身份出现在手机市场。'
-    ent_list = ['华为', '苹果', 'Nokia Pro','(IBM)', 'relme+', '荣耀']
+    str_sent = 'AI金融评论消息，央行中汇金融科技（深圳）有限公司（下称“中汇金科”），日前在2020中国（深圳）金融科技全球峰会揭牌成立。这是继成方金科之后，央行年内成立的第二家金融科技公司。'
+    ent_list = ['中汇金融科技（深圳）有限公司', '中汇金科', '成方金科', '央行']
     t, l, e, entities_index, length = sentence_to_token(str_sent, ent_list)
     print('The token is {}---\n'.format(t))
     print('The label is {}---\n'.format(l))
@@ -313,9 +340,9 @@ if __name__ == "__main__":
     ptokenID2entID = {v: k for k, v in entID2ptokenID.items()}
 
     so_id_list = []
-    s_name = '华为'
-    o_name = '荣耀'
-    rel_name = '竞争'
+    s_name = '中汇金融科技（深圳）有限公司'
+    o_name = '央行'
+    rel_name = '附属'
     sent_ids_list = entities_index[s_name]  # 找到每个头实体字符串出现的实体位置列表
     print('The sent_ids_list is --- {}\n'.format(sent_ids_list))
     oent_ids_list = entities_index[o_name]  # 找到每个尾实体字符串出现的实体位置列表
