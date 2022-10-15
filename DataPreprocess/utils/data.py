@@ -1,7 +1,7 @@
+from utils.find_sdp import *
 import re
 from collections import OrderedDict
 import copy
-from find_sdp import *
 
 '''
 文本分析处理部分
@@ -114,7 +114,7 @@ def sentence_to_token(info, entities_list):
         else:
             label.append("O")
 
-    return token, label, entities, entities_index, len(entities) # entities表示的每个实体的{start,end}, entities_index表示{字符名称,[该实体是entitiesz中的第几个]}
+    return copy.deepcopy(token), copy.deepcopy(label), copy.deepcopy(entities), copy.deepcopy(entities_index), len(entities) # entities表示的每个实体的{start,end}, entities_index表示{字符名称,[该实体是entitiesz中的第几个]}
 
 def get_entities(sentence, entities_list):
     # 获得实体列表
@@ -130,7 +130,7 @@ def get_entities(sentence, entities_list):
                 else:
                     entities.append(entity)
     entities.sort(key = lambda x: len(x), reverse=True)
-    return entities # 将匹配出的实体按照长度，从大到小进行排列
+    return copy.deepcopy(entities) # 将匹配出的实体按照长度，从大到小进行排列
 
 
 def processing_relations(relations, entities, entities_index, token_list, str_sentence, entities_list): # 返回关系列表，每条关系的形式是：{实体id, 关系名称, 实体id}
@@ -142,10 +142,15 @@ def processing_relations(relations, entities, entities_index, token_list, str_se
     :param str_sentence: 原始的输入字符串句子，同sentence_to_token()的参数
     :return:已经按长度从大到小排列的实体序列，同sentence_to_token()的参数
     """
+    print('*****************************************************************')
+    print('****                                                         ****')
+    print('****                                                         ****')
+    print('*****************************************************************')
+    print("We are processing the original string sentence --- {}\n\n\n".format(str_sentence))
 
     dict4ents_be_list = get_ents_be_list(entities, token_list)
     entID2ptokenID, parsed_token_list = split_by_ents(str_sentence, entities_list)
-    ptokenID2entID = {v:k for k,v in entID2ptokenID.item()}
+    ptokenID2entID = {v:k for k,v in entID2ptokenID.items()}
 
     l_relations = []
     for relation in relations:
@@ -183,16 +188,53 @@ def processing_relations(relations, entities, entities_index, token_list, str_se
 
 
         if len(entities_index[s_name]) > 1 or len(entities_index[o_name]) > 1:
+            print('The relation triplet will be chose for more than one mentions is {}\n'.format(relation))
             # 找到该两个字符串实体存在关系的是位于全部实体的哪个
             so_id_list = []
             sent_ids_list = entities_index[s_name]  # 找到每个头实体字符串出现的实体位置列表
+            # print('The sent_ids_list is --- {}\n'.format(sent_ids_list))
             oent_ids_list = entities_index[o_name]  # 找到每个尾实体字符串出现的实体位置列表
+            # print('The oent_ids_list is --- {}\n'.format(oent_ids_list))
             for each_sent_id in sent_ids_list:
                 for each_oent_id in oent_ids_list:
-                    so_id_list.append((entID2ptokenID[each_sent_id], entID2ptokenID[each_oent_id])) # 此处构成元组的是实体列表中的实体id，我们应该将其转化为spacy解析句子后的token_id
+                    so_id_list.append((entID2ptokenID[each_sent_id],
+                                       entID2ptokenID[each_oent_id]))  # 此处构成元组的是实体列表中的实体id，我们应该将其转化为spacy解析句子后的token_id
 
-            ptoken_sid, ptoken_oid = get_nearest_mentions(parsed_token_list, copy.deepcopy(so_id_list), rel_name)
-            s_i, o_i = ptokenID2entID[ptoken_sid], ptokenID2entID[ptoken_oid]
+            so_be_list = []
+            sent_be_list = dict4ents_be_list[s_name]  # 找到每个头实体字符串出现的token位置元组列表
+            # print('The sent_be_list is --- {}\n'.format(sent_be_list))
+            oent_be_list = dict4ents_be_list[o_name]  # 找到每个尾实体字符串出现的token位置元组列表
+            # print('The oent_be_list is --- {}\n'.format(oent_be_list))
+            for iter_sent, each_sent_be in enumerate(sent_be_list):
+                for iter_oent, each_oent_be in enumerate(oent_be_list):
+                    so_be_list.append((each_sent_be, each_oent_be, iter_sent, iter_oent))
+
+            assert len(sent_ids_list) == len(sent_be_list)
+            assert len(oent_ids_list) == len(oent_be_list)
+
+            cmp_sig, best_so = get_nearest_mentions(token_list, parsed_token_list, copy.deepcopy(so_id_list), copy.deepcopy(so_be_list), rel_name)
+            sent_id, oent_id = best_so
+            if cmp_sig == 'sdp':
+                s_i, o_i = ptokenID2entID[sent_id], ptokenID2entID[oent_id]
+            elif cmp_sig == 'dis':
+                # 使用的是序列相对距离
+                s_i, o_i = sent_ids_list[sent_id], oent_ids_list[oent_id]
+
+            s_name_fromIndex = 'None'
+            for ent, indexs in entities_index.items():
+                if s_i in indexs:
+                    s_name_fromIndex = ent
+
+            o_name_fromIndex = 'None'
+            for ent, indexs in entities_index.items():
+                if o_i in indexs:
+                    o_name_fromIndex = ent
+
+            # print('The s_name_fromIndex is {}.'.format(s_name_fromIndex))
+            # print('The o_name_fromIndex is {}.'.format(o_name_fromIndex))
+
+            assert s_name == s_name_fromIndex, 'Error: the s_name_fromIndex is {}'.format(s_name_fromIndex)
+            assert o_name == o_name_fromIndex, 'Error: the o_name_fromIndex is {}'.format(o_name_fromIndex)
 
         elif len(entities_index[s_name]) == 1 and len(entities_index[o_name]) == 1:
             s_i = entities_index[s_name][0] # 找出每条关系中每个实体（字符）所处的全部位置（在该条数据的实体列表中的id）
@@ -217,7 +259,7 @@ def processing_relations(relations, entities, entities_index, token_list, str_se
             }
         if new_rel not in full_rel:
             full_rel.append(new_rel)
-        if rel_name in rel_tt: # 特殊的，对于对称关系，使用了sub和obj的逆转添加
+        if rel_name in rel_tt and s_i != o_i: # 特殊的，对于对称关系，使用了sub和obj的逆转添加
             if flag4:
                 new_rel = {
                     "subject": o_i,
@@ -235,22 +277,22 @@ def processing_relations(relations, entities, entities_index, token_list, str_se
                 full_rel.append(new_rel)
 
     # 建立所有的实体对关系，将不存在事实关系的全部列为None关系
-    for s_i in range(len(entities)):
-        for o_i in range(len(entities)):
-            if s_i == o_i:
+    for s_it in range(len(entities)):
+        for o_it in range(len(entities)):
+            if s_it == o_it:
                 continue
             flag = False
             for rel in full_rel: # 检查每个事实关系，除了事实关系外的都定义为None关系
-                if rel["object"] == o_i and rel["subject"] == s_i:
+                if rel["object"] == o_it and rel["subject"] == s_it:
                     flag = True # 标记这两个实体存在事实关系
                     break
             if not flag:
                 full_rel.append({
-                    "subject": s_i,
+                    "subject": s_it,
                     "rel_name": "None",
-                    "object": o_i
+                    "object": o_it
                 })
-    return full_rel
+    return copy.deepcopy(full_rel)
 
 
 def relation_statistic(relations): # 统计每个文本关系所对应的数量
@@ -260,7 +302,7 @@ def relation_statistic(relations): # 统计每个文本关系所对应的数量
             rel_stats[rel["rel_name"]] += 1
         else:
             rel_stats[rel["rel_name"]] = 1
-    return rel_stats
+    return copy.deepcopy(rel_stats)
 
 
 def count_relations(data):
@@ -289,7 +331,7 @@ def data_to_txt(info): # 主要是用于随机化之后的文本重现
             else:
                 print('************************************************')
     tr = tr[:-1]
-    return ts, tr
+    return copy.deepcopy(ts), copy.deepcopy(tr)
 
 
 def get_ents_be_list(entities, tokens_list):
